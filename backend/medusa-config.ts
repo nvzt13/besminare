@@ -17,5 +17,13 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/brand",
     },
+    {
+      resolve: "./src/payment-providers/paytr",
+      options: {
+        merchant_id: process.env.PAYTR_MERCHANT_ID,
+        merchant_key: process.env.PAYTR_MERCHANT_KEY,
+        merchant_salt: process.env.PAYTR_MERCHANT_SALT,
+      },
+    },
   ]
 })
