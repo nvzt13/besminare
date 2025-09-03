@@ -1,76 +1,81 @@
+import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import crypto from "crypto"
 
-export async function POST(req: any, res: any) {
-  const {
-    email,
-    amount,
-    basket,
-    installment_count = "0",
-    currency = "TL",
-    non_3d = "0",
-    payment_type = "card",
-    client_lang = "tr",
-    merchant_ok_url = "https://site.com/order/success",
-    merchant_fail_url = "https://site.com/order/fail",
-    card_type = "",
-    user_name = "Test Kullanıcı",
-    user_address = "Adres",
-    user_phone = "05555555555",
-  } = await req.body
+export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
+  try {
+    const {
+      email,
+      user_name,
+      user_address,
+      user_phone,
+      amount,
+      basket,
+      user_ip,
+    } = req.body
 
-  const merchant_id = process.env.PAYTR_MERCHANT_ID!
-  const merchant_key = process.env.PAYTR_MERCHANT_KEY!
-  const merchant_salt = process.env.PAYTR_MERCHANT_SALT!
+    const merchant_id = process.env.PAYTR_MERCHANT_ID!
+    const merchant_key = process.env.PAYTR_MERCHANT_KEY!
+    const merchant_salt = process.env.PAYTR_MERCHANT_SALT!
 
-  const forwarded = (req.headers["x-forwarded-for"] || "") as string
-  const user_ip = "5.229.127.76"
+    const merchant_oid = "IN" + Date.now() // benzersiz sipariş numarası
 
-  const merchant_oid = "IN" + Date.now().toString()
+    // Sepeti base64 encode et
+    const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
 
-  const test_mode = "0"
-  const payment_amount = "100"
+    const max_installment = "0"
+    const no_installment = "0"
+    const currency = "TL"
+    const test_mode = "1" // canlıya geçince "0"
+    const merchant_ok_url = "http://localhost:3000/payment/success"
+    const merchant_fail_url = "http://localhost:3000/payment/fail"
+    const timeout_limit = 30
+    const debug_on = 1
+    const lang = "tr"
 
-  // Hash
-  const hashStr = `${merchant_id}${user_ip}${merchant_oid}${email}${payment_amount}${payment_type}${installment_count}${currency}${test_mode}${non_3d}`
-  const paytr_token = crypto
-    .createHmac("sha256", merchant_key )
-    .update(hashStr + merchant_salt)
-    .digest("base64")
+    // Token için hash string oluştur
+    const hashStr = `${merchant_id}${user_ip}${merchant_oid}${email}${amount}${user_basket}${no_installment}${max_installment}${currency}${test_mode}`
 
-  // Zorunlu alanlar
-  const no_installment = "0"   // 0: taksit yapılabilir, 1: sadece tek çekim
-  const max_installment = "12" // en fazla 12 taksit
+    const paytr_token = crypto
+      .createHmac("sha256", merchant_key)
+      .update(hashStr + merchant_salt)
+      .digest("base64")
 
-  const fields = {
-  merchant_id,
-  user_ip,
-  merchant_oid,
-  email,
-  payment_amount,
-  payment_type,
-  currency,
-  test_mode,
-  non_3d,
-  merchant_ok_url,
-  merchant_fail_url,
-  user_name,
-  user_address,
-  user_phone,
-  user_basket: JSON.stringify(basket || []),
-  debug_on: "1",
-  client_lang,   // senin eklediğin
-  lang: client_lang, // PayTR’un istediği
-  paytr_token,
-  installment_count,
-  card_type,
-  no_installment,
-  max_installment,
-}
+    // PayTR API çağrısı
+    const response = await fetch("https://www.paytr.com/odeme/api/get-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        merchant_id,
+        user_ip,
+        merchant_oid,
+        email,
+        payment_amount: amount.toString(),
+        user_name,
+        user_address,
+        user_phone,
+        merchant_ok_url,
+        merchant_fail_url,
+        user_basket,
+        no_installment,
+        max_installment,
+        currency,
+        test_mode,
+        timeout_limit: timeout_limit.toString(),
+        debug_on: debug_on.toString(),
+        lang,
+        paytr_token,
+      }),
+    })
 
-  console.log("PayTR Gönderilen Alanlar:", fields)
+    const data = await response.json()
 
-  return res.json({
-    postUrl: "https://www.paytr.com/odeme",
-    fields,
-  })
+    if (data.status === "success") {
+      return res.json({ token: data.token })
+    } else {
+      return res.status(400).json(data)
+    }
+  } catch (err) {
+    console.error("PayTR prepare error:", err)
+    return res.status(500).json({ error: "Internal Server Error" })
+  }
 }

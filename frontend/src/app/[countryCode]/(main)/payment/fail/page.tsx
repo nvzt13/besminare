@@ -1,10 +1,9 @@
 import React from 'react'
-import Checkout from './form'
 
 const page = () => {
   return (
     <div>
-        <Checkout />
+      fail page
     </div>
   )
 }
