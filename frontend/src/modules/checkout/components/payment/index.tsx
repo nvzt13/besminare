@@ -92,6 +92,7 @@ const Payment = ({
     setError(null)
   }, [isOpen])
 
+  console.log("availablePaymentMethods", availablePaymentMethods)
   return (
     <div className="bg-white">
       <div className="flex flex-row items-center justify-between mb-6">

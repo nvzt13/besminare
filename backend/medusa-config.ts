@@ -2,7 +2,7 @@ import { loadEnv, defineConfig } from "@medusajs/framework/utils";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
 
-module.exports = defineConfig({
+export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {
@@ -22,14 +22,17 @@ module.exports = defineConfig({
       options: {
         providers: [
           {
-            // if module provider is in a plugin, use `plugin-name/providers/my-payment`
-            resolve: "./src/modules/payment",
-            id: "payment",
+            resolve: "./src/modules/payment/paytr",
+            id: "paytr",
             options: {
               merchant_id: process.env.PAYTR_MERCHANT_ID,
               merchant_key: process.env.PAYTR_MERCHANT_KEY,
               merchant_salt: process.env.PAYTR_MERCHANT_SALT,
             },
+          },
+          {
+            resolve: "./src/modules/payment/cod",
+            id: "cod",
           },
         ],
       },
